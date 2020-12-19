@@ -1,0 +1,61 @@
+package channels
+
+
+// Join reads from input channels and returns a channel that outputs all the value. The order is at random.
+// The returned channel is closed when all the input channels are closed.
+// If zero channels are passed it returns an closed channel.
+//
+// If you want some kind of ordering please see SequentialJoin
+func Join[T](in ...<-chan T) <-chan T {
+	out := make(chan T)
+	if len(in) == 0 {
+		close(out)
+		return out
+	}
+
+	end := make(chan struct{})
+	for _, c := range in {
+		go func(c <-chan T) {
+			for v := range c {
+				out <- v
+			}
+			end <- struct{}{}
+		}(c)
+	}
+	go func() {
+		count := 0
+		for range end {
+			count++
+			if count == len(in) {
+				break
+			}
+		}
+
+		close(out)
+	}()
+
+	return out
+}
+
+// SequentialJoin is similar to join expect that it guarantees ordering. The input channels are processed one
+// after the other.
+//
+// Note: Use this only if the channels are guaranteed to be closed.
+func SequentialJoin[T](in ...<-chan T) <-chan T {
+	out := make(chan T)
+	if len(in) == 0 {
+		close(out)
+		return out
+	}
+
+	go func() {
+		for _, c := range in {
+			for v := range c {
+				out <- v
+			}
+		}
+		close(out)
+	}()
+
+	return out
+}

@@ -1,0 +1,76 @@
+package channels
+
+import (
+	"testing"
+)
+
+func TestJoin(t *testing.T) {
+	t.Run("Zero", func(t *testing.T) {
+		c := Join[struct{}]()
+		_, ok := <-c
+		if ok {
+			t.Error("Should return an empty channel if zero channels are passed")
+		}
+	})
+
+	t.Run("Some", func(t *testing.T) {
+		in := make([]chan struct{}, 2)
+
+		for i :=  range in {
+			in[i] = make(chan struct{})
+			go func(v chan struct{}) {
+				for i := 0; i < 25; i++ {
+					v <- struct{}{}
+				}
+
+				close(v)
+			}(in[i])
+		}
+
+		count := 0
+		for range Join[struct{}](in[0], in[1]) {
+			count++
+		}
+
+		if count != 25*2 {
+			t.Errorf("Join output should have collected %v, got: %v", 25*2, count)
+		}
+	})
+}
+
+func TestSequentialJoin(t *testing.T) {
+	t.Run("Zero", func(t *testing.T) {
+		c := Join[struct{}]()
+		_, ok := <-c
+		if ok {
+			t.Error("Should return an empty channel if zero channels are passed")
+		}
+	})
+
+	t.Run("Some", func(t *testing.T) {
+		in := make([]chan bool, 2)
+
+		for i :=  range in {
+			in[i] = make(chan bool)
+			go func(v chan bool, first bool) {
+				for i := 0; i < 25; i++ {
+					v <- first
+				}
+
+				close(v)
+			}(in[i], i == 0)
+		}
+
+		count := 0
+		for v := range SequentialJoin[bool](in[0], in[1]) {
+			count++
+			if count <= 25 && v == false {
+				t.Error("SequentialJoin is not sequential receiving them in a different order")
+			}
+		}
+
+		if count != 25*2 {
+			t.Errorf("SequentialJoin output should have collected %v, got: %v", 25*2, count)
+		}
+	})
+}
