@@ -1,0 +1,12 @@
+package channels
+
+// Reduce reduces the channel to a single value using the reduced function
+//
+// Note: Use this only if the input channel is guaranteed to close.
+func Reduce[T, U any](src <-chan T, f func(U, T) U, initial U) U {
+	out := initial
+	for v := range src {
+		out = f(out, v)
+	}
+	return out
+}

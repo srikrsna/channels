@@ -1,0 +1,32 @@
+package channels
+
+// Collect returns a slice of all values received from the src channel.
+//
+// MOTE: Only use this if src is guaranteed to close otherwise this will block indefinitely.
+func Collect[T any](src <-chan T) []T {
+	var vv []T
+	for v := range src {
+		vv = append(vv, v)
+	}
+	return vv
+}
+
+// Transform returns a channel that will transform the values of the src channel using the provided function
+func Transform[T, U any](src <-chan T, f func(T) U) <-chan U {
+	out := make(chan U)
+	go func() {
+		for v := range src {
+			out <- f(v)
+		}
+	}()
+	return out
+}
+
+// Each runs the function on each value obtained from the src channel.
+// It is lazy and function is run when reading values from the returned channel
+func Each[T any](src <-chan T, f func(T)) <-chan T {
+	return Transform[T, T](src, func(v T) T {
+		f(v)
+		return v
+	})
+}

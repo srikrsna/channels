@@ -1,0 +1,35 @@
+package channels
+
+// Of takes an arbitrary number of elements of type T and returns a channel with those elements.
+// The order in which channel emits values is same as the input
+func Of[T any](in ...T) <-chan T {
+	out := make(chan T)
+
+	go func() {
+		for _, v := range in {
+			out <- v
+		}
+	}()
+
+	return out
+}
+
+// Generate returns a channel that emits values returned by the next function. The first value that is emitted by the returned channel is always start.
+// It is also the value with which the next function will be called for the first time.
+func Generate[T any](start T, next func(previous T) (next T, stop bool)) <-chan T {
+	out := make(chan T)
+
+	go func() {
+		out <- start
+		p := start
+		stop := false
+		for !stop {
+			p, stop = next(p)
+			out <- p
+		}
+
+		close(out)
+	}()
+
+	return out
+}

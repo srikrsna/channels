@@ -1,12 +1,11 @@
 package channels
 
-
-// Join reads from input channels and returns a channel that outputs all the value. The order is at random.
+// Merge combines the output of all input into one output channel. The order is at random.
 // The returned channel is closed when all the input channels are closed.
 // If zero channels are passed it returns an closed channel.
 //
-// If you want some kind of ordering please see SequentialJoin
-func Join[T](in ...<-chan T) <-chan T {
+// If you want channels to be processed in the order they were passed see Concat
+func Merge[T any](in ...<-chan T) <-chan T {
 	out := make(chan T)
 	if len(in) == 0 {
 		close(out)
@@ -22,6 +21,7 @@ func Join[T](in ...<-chan T) <-chan T {
 			end <- struct{}{}
 		}(c)
 	}
+
 	go func() {
 		count := 0
 		for range end {
@@ -37,11 +37,11 @@ func Join[T](in ...<-chan T) <-chan T {
 	return out
 }
 
-// SequentialJoin is similar to join expect that it guarantees ordering. The input channels are processed one
+// Concat is similar to Merge except that it guarantees order. The input channels are processed one
 // after the other.
 //
 // Note: Use this only if the channels are guaranteed to be closed.
-func SequentialJoin[T](in ...<-chan T) <-chan T {
+func Concat[T any](in ...<-chan T) <-chan T {
 	out := make(chan T)
 	if len(in) == 0 {
 		close(out)
@@ -58,4 +58,18 @@ func SequentialJoin[T](in ...<-chan T) <-chan T {
 	}()
 
 	return out
+}
+
+// Copy copies values from src channel to dst channel. It returns a channel that closes/emits once the copy operation is complete.
+// It does not close the dst channel
+func Copy[T any](dst chan<- T, src <-chan T) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		for v := range src {
+			dst <- v
+		}
+
+		close(done)
+	}()
+	return done
 }
