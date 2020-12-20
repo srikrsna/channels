@@ -18,8 +18,26 @@ func Transform[T, U any](src <-chan T, f func(T) U) <-chan U {
 		for v := range src {
 			out <- f(v)
 		}
+		close(out)
 	}()
 	return out
+}
+
+// Split splits the channels into two based the predicate.
+func Split[T any](src <-chan T, f func(T) (first bool)) (<-chan T, <-chan T) {
+	first, second := make(chan T), make(chan T)
+
+	go func() {
+		for v := range src {
+			if f(v) {
+				first <- v
+			} else {
+				second <- v
+			}
+		}
+	}()
+
+	return first, second
 }
 
 // Each runs the function on each value obtained from the src channel.
@@ -29,4 +47,45 @@ func Each[T any](src <-chan T, f func(T)) <-chan T {
 		f(v)
 		return v
 	})
+}
+
+// Buffer
+func Buffer[T any](src <-chan T, f func(T) bool) <-chan []T {
+	out := make(chan []T)
+
+	go func() {
+		var arr []T
+		for v := range src {
+			arr = append(arr, v)
+			if f(v) {
+				out <- arr
+				arr = make([]T, 0)
+			}
+		}
+		out <- arr
+		close(out)
+	}()
+
+	return out
+}
+
+func NWise[T any](src <-chan T, n int) <-chan []T {
+	if n < 1 {
+		panic("channels: n needs to be 1 or greater than 1 for NWise")
+	}
+
+	out := make(chan []T)
+
+	go func() {
+		var arr []T
+		for v := range src {
+			arr = append(arr, v)
+			if len(arr) >= n {
+				out <- arr[len(arr)-n:]
+			}
+		}
+		close(out)
+	}()
+
+	return out
 }

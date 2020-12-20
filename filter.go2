@@ -1,0 +1,71 @@
+package channels
+
+func Distinct[T any](src <-chan T, eqFn func(p T, c T) bool) <-chan T {
+	out := make(chan T)
+
+	go func() {
+		p := <- src
+		out <- p
+
+		for v := range src {
+			if !eqFn(p, v) {
+				out <- v
+			}
+			p = v
+		}
+
+		close(out)
+	}()
+
+	return out
+}
+
+func DistinctComparable[T Comparable](src <-chan T) <-chan T {
+	return Distinct[T](src, func(p T, c T) bool {
+		return p == c
+	})
+}
+
+func Filter[T any](src <-chan T, f func(T) bool) <-chan T {
+	out := make(chan T)
+
+	go func() {
+		for v := range src {
+			if f(v) {
+				out <- v
+			}
+		}
+
+		close(out)
+	}()
+
+	return out
+}
+
+func Take[T any](src <-chan T, wf func (T) bool) <-chan T {
+	out := make(chan T)
+	go func() {
+		for v := range src {
+			if wf(v) {
+				out <- v
+				continue
+			}
+			break
+		}
+		close(out)
+	}()
+	return out
+}
+
+func Throttle[T, U any](src <-chan T, rl <-chan U) <-chan T {
+	out := make(chan T)
+	go func() {
+		for v := range src {
+			<-rl
+			out <- v
+		}
+
+		close(out)
+	}()
+	return out
+}

@@ -3,10 +3,25 @@ package channels
 // Reduce reduces the channel to a single value using the reduced function
 //
 // Note: Use this only if the input channel is guaranteed to close.
-func Reduce[T, U any](src <-chan T, f func(U, T) U, initial U) U {
+func Reduce[T, U any](src <-chan T, initial U, f func(U, T) U ) U {
 	out := initial
 	for v := range src {
 		out = f(out, v)
 	}
+	return out
+}
+
+// Scan works similar to reduce but emits the value at each step. This can safely be used for indefinite channels
+func Scan[T, U any](src <-chan T, initial U, f func(U, T) U ) <-chan U {
+	out := make(chan U)
+	go func() {
+		p := initial
+		for v := range src {
+			p = f(p, v)
+			out <- p
+		}
+		close(out)
+	}()
+
 	return out
 }

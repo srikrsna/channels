@@ -62,8 +62,8 @@ func Concat[T any](in ...<-chan T) <-chan T {
 
 // Copy copies values from src channel to dst channel. It returns a channel that closes/emits once the copy operation is complete.
 // It does not close the dst channel
-func Copy[T any](dst chan<- T, src <-chan T) <-chan struct{} {
-	done := make(chan struct{})
+func Copy[T any](dst chan<- T, src <-chan T) <-chan Signal {
+	done := make(chan Signal)
 	go func() {
 		for v := range src {
 			dst <- v
@@ -72,4 +72,61 @@ func Copy[T any](dst chan<- T, src <-chan T) <-chan struct{} {
 		close(done)
 	}()
 	return done
+}
+
+func StartWith[T any](src <-chan T, vv ...T) <-chan T {
+	out := make(chan T)
+
+	go func() {
+		for _, v := range vv {
+			out <- v
+		}
+
+		for v := range src {
+			out <- v
+		}
+
+		close(out)
+	}()
+
+	return out
+}
+
+// Race will return the channel that is equivalent to the first channel that starts emitting values.
+func Race[T any](in ...chan T) <-chan T {
+	out := make(chan T)
+	if len(in) == 0 {
+		close(out)
+		return out
+	}
+
+	done := make(chan Signal)
+	type sel struct {
+		value T
+		ch <-chan T
+	}
+
+	selCh := make(chan sel)
+
+	for i, c := range in {
+		go func(i int, c <-chan T) {
+			select {
+			case <-done:
+			case v := <-c:
+				close(done)
+				selCh <- sel{ v, c}
+			}
+		}(i, c)
+	}
+
+	go func() {
+		s := <- selCh
+		out <- s.value
+		for v := range s.ch {
+			out <- v
+		}
+		close(out)
+	}()
+
+	return out
 }
