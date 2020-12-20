@@ -4,7 +4,7 @@ func Distinct[T any](src <-chan T, eqFn func(p T, c T) bool) <-chan T {
 	out := make(chan T)
 
 	go func() {
-		p := <- src
+		p := <-src
 		out <- p
 
 		for v := range src {
@@ -42,7 +42,7 @@ func Filter[T any](src <-chan T, f func(T) bool) <-chan T {
 	return out
 }
 
-func Take[T any](src <-chan T, wf func (T) bool) <-chan T {
+func Take[T any](src <-chan T, wf func(T) bool) <-chan T {
 	out := make(chan T)
 	go func() {
 		for v := range src {

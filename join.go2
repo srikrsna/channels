@@ -103,7 +103,7 @@ func Race[T any](in ...chan T) <-chan T {
 	done := make(chan Signal)
 	type sel struct {
 		value T
-		ch <-chan T
+		ch    <-chan T
 	}
 
 	selCh := make(chan sel)
@@ -114,13 +114,13 @@ func Race[T any](in ...chan T) <-chan T {
 			case <-done:
 			case v := <-c:
 				close(done)
-				selCh <- sel{ v, c}
+				selCh <- sel{v, c}
 			}
 		}(i, c)
 	}
 
 	go func() {
-		s := <- selCh
+		s := <-selCh
 		out <- s.value
 		for v := range s.ch {
 			out <- v
